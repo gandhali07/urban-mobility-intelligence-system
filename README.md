@@ -193,35 +193,6 @@ The system dynamically changes predictions based on:
 
 ---
 
-# 📂 Project Structure
-
-```text
-BDA_Final_Project/
-│
-├── src/
-│   ├── data_loading.py
-│   ├── preprocessing.py
-│   ├── merging.py
-│   ├── feature_engineering.py
-│   ├── modeling.py
-│   ├── shap_explainability.py
-│   ├── analytics.py
-│   └── map_visualization.py
-│
-├── notebooks/
-├── scripts/
-├── outputs/
-│
-├── main.py
-├── predict_trip.py
-├── streamlit_app.py
-├── requirements.txt
-├── README.md
-└── .gitignore
-```
-
----
-
 # ▶️ Installation & Setup
 
 ## 1️⃣ Clone Repository
