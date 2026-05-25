@@ -1,0 +1,47 @@
+[
+  {
+    "slide_title": "Event Impact",
+    "business_question": "Do citywide events make taxi trips slower?",
+    "key_metric": "High-event days average 16.2 min vs no-event days 16.4 min.",
+    "insight": "Citywide event volume alone does not show a meaningful difference in trip delay in this sample.",
+    "why_it_matters": "For better planning, future work should measure events near pickup/dropoff zones instead of only counting all NYC events.",
+    "chart_file": "event_impact_duration.png",
+    "source_table": "event_impact.csv"
+  },
+  {
+    "slide_title": "Weather Impact",
+    "business_question": "Does weather change taxi travel time?",
+    "key_metric": "Slowest temperature band: mild at 17.6 min.",
+    "insight": "Weather changes trip duration, but the gap between mild and freezing is smaller than distance and location effects.",
+    "why_it_matters": "Weather is useful context, but business decisions should prioritize distance, zones, and time of day first.",
+    "chart_file": "weather_impact_duration.png",
+    "source_table": "weather_impact.csv"
+  },
+  {
+    "slide_title": "Time-Based Mobility",
+    "business_question": "When are taxi trips slower or busier?",
+    "key_metric": "Slowest hour: 14:00 with 18.7 min; busiest hour: 18:00.",
+    "insight": "Time of day is a strong operational signal for expected delay and demand.",
+    "why_it_matters": "Travelers and dispatchers can use this to plan around slower windows.",
+    "chart_file": "hourly_mobility.png",
+    "source_table": "time_mobility.csv"
+  },
+  {
+    "slide_title": "Common Travel Corridors",
+    "business_question": "Which pickup-dropoff pairs appear most often?",
+    "key_metric": "Top route: Upper East Side South -> Upper East Side North with 701 trips in the sample.",
+    "insight": "Taxi demand is concentrated in repeated corridors rather than evenly spread across the city.",
+    "why_it_matters": "These corridors are useful for demand planning, fleet positioning, and map storytelling.",
+    "chart_file": "top_zone_pairs.png",
+    "source_table": "zone_pair.csv"
+  },
+  {
+    "slide_title": "Airport Trip Behavior",
+    "business_question": "Are airport trips different from regular city trips?",
+    "key_metric": "Airport trips average 35.5 min and 14.1 mi; non-airport trips average 14.0 min and 2.3 mi.",
+    "insight": "Airport trips are a separate travel pattern, so the model should treat them as a special feature.",
+    "why_it_matters": "This improves prediction quality and gives a clear story for route planning.",
+    "chart_file": "airport_vs_non_airport.png",
+    "source_table": "airport_trip.csv"
+  }
+]

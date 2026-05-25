@@ -1,0 +1,25 @@
+# Urban Mobility Intelligence System — Python dependencies
+# Install (recommended — keeps NumPy 1.x for Anaconda compatibility):
+#   pip install -r requirements.txt -c constraints.txt
+# Or: pip install -r requirements.txt
+# PySpark needs a Java 8/11/17 runtime (e.g. Temurin) on PATH.
+
+# Core data & ML
+# Pin NumPy < 2 so pip/conda binary wheels (pandas, sklearn, numexpr, bottleneck) stay compatible.
+pandas>=2.0.0
+numpy>=1.24.0,<2
+scikit-learn>=1.3.0
+xgboost>=2.0.0
+shap>=0.44.0
+matplotlib>=3.7.0
+
+# Big data processing
+pyspark>=3.4.0
+
+# Interactive maps
+folium>=0.15.0
+branca>=0.6.0
+streamlit>=1.35.0
+
+# Optional: faster Parquet/IO if you export from Spark
+pyarrow>=14.0.0

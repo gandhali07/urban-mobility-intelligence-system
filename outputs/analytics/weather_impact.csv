@@ -1,0 +1,10 @@
+weather_dimension,weather_band,trips,avg_duration_min,median_duration_min,avg_distance_miles,avg_speed_mph,avg_event_count
+temp_band,cold,64155,16.159,11.983,3.475,11.811,417.827
+temp_band,freezing,19589,14.873,11.067,3.242,12.55,892.0
+temp_band,mild,14801,17.609,12.417,3.454,11.205,253.414
+wind_band,moderate,66371,16.122,11.817,3.46,12.0,524.301
+wind_band,high,19370,16.401,11.95,3.402,11.37,409.949
+wind_band,low,12804,15.692,11.85,3.283,11.927,413.217
+humidity_band,medium,52568,16.099,11.95,3.358,11.827,507.397
+humidity_band,high,32812,15.928,11.7,3.611,12.305,258.516
+humidity_band,low,13165,16.689,11.85,3.235,10.935,977.941

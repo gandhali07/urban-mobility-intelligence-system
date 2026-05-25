@@ -1,0 +1,5 @@
+event_level,trips,avg_duration_min,median_duration_min,avg_distance_miles,avg_speed_mph,avg_event_count
+high,71978,16.154,11.867,3.291,11.612,665.922
+none,16916,16.4,11.817,3.612,12.457,0.0
+low,6039,15.818,11.733,4.661,13.218,7.882
+medium,3612,14.658,11.667,3.178,11.913,14.0

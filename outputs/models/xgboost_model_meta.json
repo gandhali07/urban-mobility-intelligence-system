@@ -1,0 +1,36 @@
+{
+  "feature_names": [
+    "hour",
+    "dow",
+    "month",
+    "is_weekend",
+    "is_rush_hour",
+    "trip_distance",
+    "distance_bucket",
+    "event_count",
+    "event_level_num",
+    "is_airport_trip",
+    "precip_flag",
+    "temp_band_num",
+    "wind_band_num",
+    "VendorID",
+    "RatecodeID",
+    "PULocationID",
+    "DOLocationID",
+    "temp_f",
+    "humidity",
+    "precip_in",
+    "pressure",
+    "wind_m_s",
+    "wind_dir_deg"
+  ],
+  "metrics": {
+    "task": "regression",
+    "mae": 175.73724365234375,
+    "r2": 0.842810332775116,
+    "baseline_mean_mae": 486.93488810581425,
+    "baseline_mean_r2": -3.2841006907036174e-05,
+    "baseline_linear_mae": 229.69693225919582,
+    "baseline_linear_r2": 0.7577852587467586
+  }
+}

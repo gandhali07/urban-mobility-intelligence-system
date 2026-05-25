@@ -1,0 +1,3 @@
+# Use with: pip install -r requirements.txt -c constraints.txt
+# Keeps NumPy 1.x so pandas/sklearn/numexpr/bottleneck wheels match.
+numpy>=1.24.0,<2
