@@ -35,6 +35,7 @@ def train_xgboost_model(
     Train/test split and fit XGBoost. Returns model, metrics dict, X_train, X_test, y_train, y_test.
     """
     rs = random_state if random_state is not None else config.RANDOM_STATE
+    chronological = timestamps is not None
     if X.columns.duplicated().any():
         logger.warning("X has duplicate column names; keeping first occurrence for XGBoost.")
         X = X.loc[:, ~X.columns.duplicated(keep="first")]
@@ -68,6 +69,7 @@ def train_xgboost_model(
     train_medians = X_train.median().fillna(0.0)
     X_train = X_train.fillna(train_medians)
     X_test = X_test.fillna(train_medians)
+    metrics_imputation = {str(k): float(v) for k, v in train_medians.items()}
 
     if task == "regression":
         dummy = DummyRegressor(strategy="mean")
@@ -122,6 +124,7 @@ def train_xgboost_model(
             "baseline_most_frequent_accuracy": float((dummy_pred == y_test.values).mean()),
         }
 
+    metrics["imputation_values"] = metrics_imputation
     logger.info("Model metrics: %s", metrics)
     return model, metrics, X_train, X_test, y_train, y_test
 
@@ -136,6 +139,7 @@ def save_model_artifacts(
     """Persist booster and small JSON sidecar with features + metrics."""
     model_path.parent.mkdir(parents=True, exist_ok=True)
     model.save_model(str(model_path))
-    meta = {"feature_names": feature_names, "metrics": metrics}
+    meta = {"feature_names": feature_names, "metrics": {k: v for k, v in metrics.items() if k != "imputation_values"},
+            "imputation_values": metrics.get("imputation_values", {})}
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
     logger.info("Saved model to %s", model_path)

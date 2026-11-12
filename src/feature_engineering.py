@@ -143,42 +143,25 @@ def bin_congestion_level(
     return out
 
 
+# Only explicitly approved weather measurements can enter the model.
+# Never infer predictors from all numeric columns: TLC data contains post-trip
+# fields (tips, fares, taxes) that would leak information at prediction time.
+WEATHER_FEATURES = (
+    "temp_f", "precip_in", "wind_m_s", "humidity", "relative_humidity",
+    "pressure", "pressure_hpa", "cloud_cover", "visibility",
+    "dew_point_f", "wind_speed_mph", "wind_dir_deg",
+)
+
+
 def pick_numeric_weather_features(df: pd.DataFrame, exclude: Optional[Iterable[str]] = None) -> List[str]:
-    """Heuristic: use numeric columns that look like weather measurements."""
-    ex = set(exclude or []) | {
-        "pickup_ts",
-        "dropoff_ts",
-        "pickup_lat",
-        "pickup_lon",
-        "dropoff_lat",
-        "dropoff_lon",
-        "trip_duration_sec",
-        "duration_min",
-        # Taxi / derived numerics (already in base features or not weather)
-        "trip_distance",
-        "event_count",
-        "hour",
-        "dow",
-        "month",
-        "is_weekend",
-        "is_rush_hour",
-        "is_airport_trip",
-        "distance_bucket",
-        "event_level_num",
-        "precip_flag",
-        "temp_band_num",
-        "wind_band_num",
-        "congestion_level",
-        "hotspot_cluster",
-        "avg_speed_mph",
-        "passenger_count",
-        "fare_amount",
-        # Keep fahrenheit as the readable temperature feature and avoid duplicates.
-        "temp_c",
-        "temp_k",
-    }
-    num = df.select_dtypes(include=[np.number]).columns.tolist()
-    return [c for c in num if c not in ex and not str(c).startswith("weather__")]
+    """Select only allowlisted, numeric pre-trip weather columns."""
+    excluded = set(exclude or [])
+    return [
+        name for name in WEATHER_FEATURES
+        if name in df.columns
+        and name not in excluded
+        and pd.api.types.is_numeric_dtype(df[name])
+    ]
 
 
 def filter_model_training_rows(

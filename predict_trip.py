@@ -22,7 +22,8 @@ from xgboost import XGBRegressor
 from src import config
 from src.data_loading import load_events_pandas, load_weather_pandas
 from src.preprocessing import preprocess_events_df, preprocess_weather_df
-from src.feature_engineering import AIRPORT_LOCATION_IDS
+from src.feature_engineering import AIRPORT_LOCATION_IDS, add_domain_features
+from src.event_features import active_event_count_for_date
 
 logging.getLogger().setLevel(logging.ERROR)
 
@@ -99,14 +100,6 @@ def build_defaults(feature_names: list[str], sample_rows: int = 100_000) -> dict
     return defaults
 
 
-def numeric_bucket(value: float, bins: list[float]) -> float:
-    """Return the zero-based bucket index used by the training features."""
-    for idx in range(len(bins) - 1):
-        if bins[idx] <= value <= bins[idx + 1]:
-            return float(idx)
-    return float(len(bins) - 2)
-
-
 def weather_values_for_time(trip_dt: datetime) -> dict[str, float]:
     weather = preprocess_weather_df(load_weather_pandas())
     if weather.empty or "time" not in weather.columns:
@@ -118,33 +111,28 @@ def weather_values_for_time(trip_dt: datetime) -> dict[str, float]:
     if out.empty:
         return {}
 
-    nearest_idx = (out["time"] - pd.Timestamp(trip_dt)).abs().idxmin()
-    row = out.loc[nearest_idx]
+    # Only use observations available by the requested pickup time.
+    available = out.loc[out["time"] <= pd.Timestamp(trip_dt)]
+    if available.empty:
+        return {}
+    row = available.iloc[-1]
     values: dict[str, float] = {}
-    for col in ["temp_k", "humidity", "pressure", "wind_m_s", "wind_dir_deg", "temp_f"]:
+    for col in ["temp_f", "temp_c", "precip_in", "humidity", "pressure", "wind_m_s", "wind_dir_deg"]:
         if col in row.index and pd.notna(row[col]):
             values[col] = float(row[col])
     return values
 
 
+def count_events_on_date(events: pd.DataFrame, trip_dt: datetime) -> int:
+    """Count events active on the requested calendar date."""
+    return active_event_count_for_date(events, trip_dt)
+
+
 def event_count_for_date(trip_dt: datetime) -> int:
-    events = load_events_pandas()
-    if events.empty:
-        return 0
-
-    date_col = None
-    for candidate in ("event_date", "Start Date/Time", "start_date_time", "date"):
-        if candidate in events.columns:
-            date_col = candidate
-            break
-    if date_col is None:
-        return 0
-
-    dates = pd.to_datetime(events[date_col], errors="coerce").dt.date
-    return int((dates == trip_dt.date()).sum())
+    return count_events_on_date(load_events_pandas(), trip_dt)
 
 
-def build_prediction_row(args: argparse.Namespace, feature_names: list[str]) -> tuple[pd.DataFrame, dict[str, Any]]:
+def build_prediction_row(args: argparse.Namespace, feature_names: list[str], imputation_values: dict[str, float] | None = None) -> tuple[pd.DataFrame, dict[str, Any]]:
     pickup = resolve_location(args.pickup, args.pickup_lat, args.pickup_lon)
     dropoff = resolve_location(args.dropoff, args.dropoff_lat, args.dropoff_lon)
     trip_dt = pd.to_datetime(args.datetime).to_pydatetime()
@@ -157,7 +145,7 @@ def build_prediction_row(args: argparse.Namespace, feature_names: list[str]) -> 
     )
     trip_distance = args.trip_distance if args.trip_distance is not None else straight_miles * 1.35
 
-    row = build_defaults(feature_names)
+    row: dict[str, float] = {}
     row.update(
         {
             "hour": float(trip_dt.hour),
@@ -175,29 +163,22 @@ def build_prediction_row(args: argparse.Namespace, feature_names: list[str]) -> 
 
     row.update(weather_values_for_time(trip_dt))
 
-    event_count = float(row.get("event_count", 0.0))
-    precip_in = float(row.get("precip_in", 0.0))
-    temp_f = float(row.get("temp_f", row.get("temp_c", 0.0)))
-    wind_m_s = float(row.get("wind_m_s", 0.0))
-    pickup_zone = pickup.get("location_id")
-    dropoff_zone = dropoff.get("location_id")
-
-    row.update(
-        {
-            "is_weekend": float(trip_dt.weekday() in [5, 6]),
-            "is_rush_hour": float(trip_dt.hour in [7, 8, 9, 16, 17, 18, 19]),
-            "distance_bucket": numeric_bucket(float(trip_distance), [-math.inf, 1.0, 3.0, 8.0, math.inf]),
-            "event_level_num": numeric_bucket(event_count, [-0.1, 0.0, 50.0, 150.0, math.inf]),
-            "is_airport_trip": float(
-                pickup_zone in AIRPORT_LOCATION_IDS or dropoff_zone in AIRPORT_LOCATION_IDS
-            ),
-            "precip_flag": float(precip_in > 0),
-            "temp_band_num": numeric_bucket(temp_f, [-math.inf, 32.0, 50.0, 70.0, math.inf]),
-            "wind_band_num": numeric_bucket(wind_m_s, [-math.inf, 3.0, 7.0, math.inf]),
-        }
-    )
-
-    X = pd.DataFrame([{col: row.get(col, 0.0) for col in feature_names}]).astype(float)
+    # Reuse the exact feature engineering function used during training.
+    # Missing model features are filled using training medians from metadata.
+    raw = pd.DataFrame([{
+        **row,
+        "pickup_ts": pd.Timestamp(trip_dt),
+        "PULocationID": pickup.get("location_id"),
+        "DOLocationID": dropoff.get("location_id"),
+    }])
+    engineered = add_domain_features(raw)
+    X = engineered.reindex(columns=feature_names).apply(
+        pd.to_numeric, errors="coerce"
+    ).astype(float)
+    if imputation_values is not None:
+        X = X.fillna(pd.Series(imputation_values)).fillna(0.0)
+    else:
+        raise ValueError("Model metadata lacks training imputation values; retrain with main.py.")
     details = {
         "pickup": pickup,
         "dropoff": dropoff,
@@ -226,8 +207,11 @@ def main() -> None:
     if not model_path.exists() or not meta_path.exists():
         raise FileNotFoundError("Model files missing. Run main.py first.")
 
-    feature_names = load_feature_names(meta_path)
-    X, details = build_prediction_row(args, feature_names)
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if meta.get("metrics", {}).get("task") != "regression":
+        raise ValueError("The prediction CLI requires a trip-duration regression model.")
+    feature_names = list(meta["feature_names"])
+    X, details = build_prediction_row(args, feature_names, meta.get("imputation_values"))
 
     model = XGBRegressor()
     model.load_model(str(model_path))
@@ -248,7 +232,7 @@ def main() -> None:
     print(f"Dropoff: {details['dropoff']['name']} ({details['dropoff']['lat']}, {details['dropoff']['lon']})")
     print(f"Date/time: {details['datetime']:%Y-%m-%d %H:%M}")
     print(f"Approx distance used: {details['model_trip_distance']:.2f} miles")
-    print(f"Events on that date: {details['event_count']}")
+    print(f"Events active on that date: {details['event_count']}")
     print(f"Estimated duration: {pred_min:.1f} minutes")
     print(f"Estimated congestion: {congestion}")
     print("\nNote: this uses the cleaned pre-trip model, so payment-after-trip fields like total_amount and tip_amount are not required.")
