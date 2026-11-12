@@ -32,7 +32,7 @@ class PredictionEventTests(unittest.TestCase):
         self.assertEqual(count_events_on_date(events, datetime(2023, 2, 26)), 0)
 
     def test_unknown_schema_is_not_silently_zero(self):
-        with self.assertRaisesRegex(ValueError, "recognized date column"):
+        with self.assertRaisesRegex(ValueError, "recognized start date column"):
             count_events_on_date(pd.DataFrame({"name": ["Event"]}), datetime(2023, 2, 24))
 
     def test_unparseable_dates_are_not_silently_zero(self):
