@@ -91,6 +91,7 @@ def train_xgboost_model(
         pred = model.predict(X_test)
         metrics = {
             "task": "regression",
+            "split_strategy": "chronological" if chronological else "random",
             "mae": float(mean_absolute_error(y_test, pred)),
             "r2": float(r2_score(y_test, pred)),
             "baseline_mean_mae": float(mean_absolute_error(y_test, dummy_pred)),
@@ -116,6 +117,7 @@ def train_xgboost_model(
         pred = model.predict(X_test)
         metrics = {
             "task": "classification",
+            "split_strategy": "chronological" if chronological else "random",
             "accuracy": float((pred == y_test.values).mean()),
             "baseline_most_frequent_accuracy": float((dummy_pred == y_test.values).mean()),
         }
