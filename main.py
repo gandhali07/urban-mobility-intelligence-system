@@ -99,8 +99,11 @@ def run_pipeline(max_rows: int | None, target: str) -> None:
             y = y.astype(int)
 
         logger.info("STEP: model (%s, target=%s)", task, y_col)
+        if "pickup_ts" not in pdf.columns:
+            raise ValueError("pickup_ts is required for chronological evaluation")
+        timestamps = pdf.loc[X.index, "pickup_ts"]
         model, metrics, X_train, X_test, y_train, y_test = train_xgboost_model(
-            X, y, task=task
+            X, y, task=task, timestamps=timestamps
         )
         model_path = config.MODELS_DIR / "xgboost_model.json"
         meta_path = config.MODELS_DIR / "xgboost_model_meta.json"
