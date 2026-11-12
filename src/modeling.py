@@ -40,8 +40,12 @@ def train_xgboost_model(
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=test_size, random_state=rs
     )
-    X_train = X_train.astype(float)
-    X_test = X_test.astype(float)
+    # Learn imputation values on training rows only to avoid test-set leakage.
+    X_train = X_train.apply(pd.to_numeric, errors="coerce").astype(float)
+    X_test = X_test.apply(pd.to_numeric, errors="coerce").astype(float)
+    train_medians = X_train.median().fillna(0.0)
+    X_train = X_train.fillna(train_medians)
+    X_test = X_test.fillna(train_medians)
 
     if task == "regression":
         dummy = DummyRegressor(strategy="mean")
