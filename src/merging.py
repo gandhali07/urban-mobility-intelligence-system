@@ -114,7 +114,7 @@ def merged_spark_to_pandas(
                 withReplacement=False, fraction=fraction, seed=config.RANDOM_STATE
             )
             # A Spark sample is probabilistic: cap the collected result to protect memory.
-            pdf = sampled.limit(max_rows).toPandas()
+            pdf = sampled.orderBy(F.rand(seed=config.RANDOM_STATE + 1)).limit(max_rows).toPandas()
         else:
             pdf = merged_df.toPandas()
     else:
