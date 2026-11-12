@@ -29,6 +29,7 @@ def train_xgboost_model(
     task: TaskType = "regression",
     test_size: float = 0.2,
     random_state: int | None = None,
+    chronological: bool = False,
 ) -> Tuple[object, dict, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     Train/test split and fit XGBoost. Returns model, metrics dict, X_train, X_test, y_train, y_test.
@@ -37,11 +38,19 @@ def train_xgboost_model(
     if X.columns.duplicated().any():
         logger.warning("X has duplicate column names; keeping first occurrence for XGBoost.")
         X = X.loc[:, ~X.columns.duplicated(keep="first")]
+    # When chronological=True, callers must supply rows sorted by pickup time.
+    # Keep the original random split available for comparison with prior results.
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=rs
+        X, y, test_size=test_size, random_state=None if chronological else rs,
+        shuffle=not chronological,
     )
-    X_train = X_train.astype(float)
-    X_test = X_test.astype(float)
+    # Learn missing-value defaults on the training partition only.
+    # Never calculate test-set medians for model preparation.
+    X_train = X_train.astype(float).replace([np.inf, -np.inf], np.nan)
+    X_test = X_test.astype(float).replace([np.inf, -np.inf], np.nan)
+    medians = X_train.median(numeric_only=True).fillna(0.0)
+    X_train = X_train.fillna(medians).fillna(0.0)
+    X_test = X_test.fillna(medians).fillna(0.0)
 
     if task == "regression":
         dummy = DummyRegressor(strategy="mean")
@@ -65,6 +74,7 @@ def train_xgboost_model(
         pred = model.predict(X_test)
         metrics = {
             "task": "regression",
+            "split_strategy": "chronological" if chronological else "random",
             "mae": float(mean_absolute_error(y_test, pred)),
             "r2": float(r2_score(y_test, pred)),
             "baseline_mean_mae": float(mean_absolute_error(y_test, dummy_pred)),
@@ -90,6 +100,7 @@ def train_xgboost_model(
         pred = model.predict(X_test)
         metrics = {
             "task": "classification",
+            "split_strategy": "chronological" if chronological else "random",
             "accuracy": float((pred == y_test.values).mean()),
             "baseline_most_frequent_accuracy": float((dummy_pred == y_test.values).mean()),
         }
