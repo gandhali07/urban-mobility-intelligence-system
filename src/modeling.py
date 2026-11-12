@@ -29,6 +29,7 @@ def train_xgboost_model(
     task: TaskType = "regression",
     test_size: float = 0.2,
     random_state: int | None = None,
+    timestamps: pd.Series | None = None,
 ) -> Tuple[object, dict, pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     Train/test split and fit XGBoost. Returns model, metrics dict, X_train, X_test, y_train, y_test.
@@ -37,9 +38,30 @@ def train_xgboost_model(
     if X.columns.duplicated().any():
         logger.warning("X has duplicate column names; keeping first occurrence for XGBoost.")
         X = X.loc[:, ~X.columns.duplicated(keep="first")]
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=rs
-    )
+    if not 0 < test_size < 1:
+        raise ValueError("test_size must be between 0 and 1")
+    if timestamps is not None:
+        # Keep time out of model features; use it only to order the split.
+        times = pd.to_datetime(timestamps.reindex(X.index), errors="coerce")
+        if times.isna().any():
+            raise ValueError("Chronological split requires a valid pickup timestamp for every row")
+        order = times.sort_values(kind="stable").index
+        X_sorted, y_sorted = X.loc[order], y.loc[order]
+        cut = int(len(X_sorted) * (1 - test_size))
+        if cut <= 0 or cut >= len(X_sorted):
+            raise ValueError("Not enough rows for the requested chronological split")
+        X_train, X_test = X_sorted.iloc[:cut], X_sorted.iloc[cut:]
+        y_train, y_test = y_sorted.iloc[:cut], y_sorted.iloc[cut:]
+        # Same timestamp on both sides can make temporal evaluation ambiguous.
+        train_end = times.loc[X_train.index].max()
+        test_start = times.loc[X_test.index].min()
+        if train_end >= test_start:
+            raise ValueError("Train/test boundary contains equal timestamps; use a date-based cutoff")
+        logger.info("Chronological split: train through %s; test from %s", train_end, test_start)
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_size, random_state=rs
+        )
     # Learn imputation values on training rows only to avoid test-set leakage.
     X_train = X_train.apply(pd.to_numeric, errors="coerce").astype(float)
     X_test = X_test.apply(pd.to_numeric, errors="coerce").astype(float)
