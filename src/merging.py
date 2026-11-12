@@ -34,10 +34,10 @@ def merge_taxi_weather_events_spark(
     event_date_col: str = "event_date",
 ) -> DataFrame:
     """
-    Left-join taxi trips to hourly weather and daily event counts.
+    Left-join taxi trips to hourly weather and daily active-event counts.
 
     - Weather: join on hour bucket of pickup_ts.
-    - Events: join on calendar day; adds event_count (trips on days with more events).
+    - Events: join on calendar day; adds event_count for events active that day.
     """
     logger.info("Merging taxi with weather (Spark)...")
     if weather_pdf.empty:
@@ -70,10 +70,10 @@ def merge_taxi_weather_events_spark(
         e = events_pdf.copy()
         if event_date_col not in e.columns:
             raise ValueError(f"Events DataFrame must contain '{event_date_col}'")
-        e["_event_day"] = pd.to_datetime(e[event_date_col], errors="coerce").dt.normalize()
-        e = e.dropna(subset=["_event_day"])
-        daily = e.groupby("_event_day").size().reset_index(name="event_count")
-        daily["_event_day"] = pd.to_datetime(daily["_event_day"]).dt.normalize()
+        from src.event_features import daily_active_event_counts
+
+        daily = daily_active_event_counts(e, start_col=event_date_col)
+        daily = daily.rename(columns={"event_day": "_event_day"})
         events_sdf = spark.createDataFrame(daily)
         events_sdf = events_sdf.withColumn(
             "_event_day", F.to_date(F.col("_event_day"))
