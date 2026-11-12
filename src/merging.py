@@ -11,6 +11,8 @@ import pandas as pd
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
+from src import config
+
 logger = logging.getLogger(__name__)
 
 
@@ -97,8 +99,24 @@ def merged_spark_to_pandas(
     For very large data, write to Parquet and train on a sample.
     """
     if max_rows is not None:
-        logger.info("Collecting up to %s rows to pandas...", max_rows)
-        pdf = merged_df.limit(max_rows).toPandas()
+        if max_rows <= 0:
+            raise ValueError("max_rows must be positive or None")
+        # Avoid .limit() on unsorted Spark partitions, which can overrepresent
+        # an arbitrary portion of the input period.
+        total = merged_df.count()
+        if total > max_rows:
+            fraction = max_rows / total
+            logger.info(
+                "Sampling approximately %s of %s merged trips across the dataset (seed=%s)",
+                max_rows, total, config.RANDOM_STATE,
+            )
+            sampled = merged_df.sample(
+                withReplacement=False, fraction=fraction, seed=config.RANDOM_STATE
+            )
+            # A Spark sample is probabilistic: cap the collected result to protect memory.
+            pdf = sampled.limit(max_rows).toPandas()
+        else:
+            pdf = merged_df.toPandas()
     else:
         logger.info("Collecting full merged DataFrame to pandas (may be heavy)...")
         pdf = merged_df.toPandas()
