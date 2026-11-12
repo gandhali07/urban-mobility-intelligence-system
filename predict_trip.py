@@ -23,6 +23,7 @@ from src import config
 from src.data_loading import load_events_pandas, load_weather_pandas
 from src.preprocessing import preprocess_events_df, preprocess_weather_df
 from src.feature_engineering import AIRPORT_LOCATION_IDS, add_domain_features
+from src.event_features import active_event_count_for_date
 
 logging.getLogger().setLevel(logging.ERROR)
 
@@ -123,23 +124,8 @@ def weather_values_for_time(trip_dt: datetime) -> dict[str, float]:
 
 
 def count_events_on_date(events: pd.DataFrame, trip_dt: datetime) -> int:
-    """Count events by the same calendar-day convention as the Spark training join.
-
-    Missing or unparseable date schemas are errors, not evidence of zero events.
-    """
-    if events.empty:
-        return 0
-    date_col = next(
-        (name for name in ("event_date", "Start Date/Time", "start_date_time", "date")
-         if name in events.columns),
-        None,
-    )
-    if date_col is None:
-        raise ValueError("Event data has no recognized date column.")
-    dates = pd.to_datetime(events[date_col], errors="coerce")
-    if dates.notna().sum() == 0:
-        raise ValueError(f"Event date column {date_col!r} contains no parseable dates.")
-    return int((dates.dt.date == trip_dt.date()).sum())
+    """Count events active on the requested calendar date."""
+    return active_event_count_for_date(events, trip_dt)
 
 
 def event_count_for_date(trip_dt: datetime) -> int:
@@ -246,7 +232,7 @@ def main() -> None:
     print(f"Dropoff: {details['dropoff']['name']} ({details['dropoff']['lat']}, {details['dropoff']['lon']})")
     print(f"Date/time: {details['datetime']:%Y-%m-%d %H:%M}")
     print(f"Approx distance used: {details['model_trip_distance']:.2f} miles")
-    print(f"Events on that date: {details['event_count']}")
+    print(f"Events active on that date: {details['event_count']}")
     print(f"Estimated duration: {pred_min:.1f} minutes")
     print(f"Estimated congestion: {congestion}")
     print("\nNote: this uses the cleaned pre-trip model, so payment-after-trip fields like total_amount and tip_amount are not required.")
