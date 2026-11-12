@@ -108,15 +108,15 @@ Taxi + Weather + Events
 
 | Metric | Result |
 |--------|--------|
-| R² Score (chronological holdout) | 0.7858 |
-| MAE (chronological holdout) | 189.98 seconds (3.17 minutes) |
-| Linear regression baseline MAE | 232.59 seconds |
+| R² Score (chronological holdout) | 0.78595 |
+| MAE (chronological holdout) | 189.94 seconds (3.17 minutes) |
+| Linear regression baseline MAE | 228.79 seconds |
 | Mean baseline MAE | 474.72 seconds |
 | Modeling Dataset | 48,162 rows; approximately 80% train / 20% test |
 | Taxi records loaded | 2,913,955 |
 
 ### Interpretation
-On a held-out **later-in-time** test partition (training through February 23, 2023, 15:32:16; testing from 15:32:26), XGBoost explains approximately **78.6% of the variance** in observed trip duration and achieves a **mean absolute error of 3.17 minutes**. MAE is an average absolute error, not a guarantee that individual predictions fall within that range. These results were reproduced locally on November 12, 2026. The model uses training-only median imputation and excludes post-trip payment fields. Historical scores from a different evaluation setup are not directly comparable.
+On a held-out **later-in-time** test partition (training through February 23, 2023, 15:32:16; testing from 15:32:26), XGBoost explains approximately **78.6% of the variance** in observed trip duration and achieves a **mean absolute error of 3.17 minutes**. MAE is an average absolute error, not a guarantee that individual predictions fall within that range. These results were reproduced locally on November 12, 2026. The model uses training-only median imputation and excludes post-trip payment fields. Historical scores from a different evaluation setup are not directly comparable. Switching from event-start counts to active-event counts changed MAE from 189.98 to 189.94 seconds on the same split, a negligible difference; no material accuracy gain is claimed.
 
 ---
 
@@ -183,11 +183,12 @@ python predict_trip.py --pickup "Times Square" --dropoff "JFK Airport" --datetim
 Pickup: Times Square
 Dropoff: JFK Airport
 Approx distance used: 18.26 miles
-Estimated duration: 57.9 minutes
+Events active on that date: 217
+Estimated duration: 60.1 minutes
 Estimated congestion: Low
 ```
 
-This example was generated using the locally retrained model for February 24, 2023, at 17:30. It uses an approximate distance (straight-line distance × 1.35), **not** a routing API; the congestion label is a speed-based proxy rather than observed traffic.\n\nThe system dynamically changes predictions based on:
+This example was generated using the locally retrained model for February 24, 2023, at 17:30, with **217 active events** on that date. The shared event feature counts events on each calendar day between their start and end dates (inclusive), rather than counting only events starting that day. It uses an approximate distance (straight-line distance × 1.35), **not** a routing API; the congestion label is a speed-based proxy rather than observed traffic.\n\nThe system dynamically changes predictions based on:
 - route
 - time
 - distance
@@ -261,6 +262,7 @@ streamlit run streamlit_app.py
 - The CLI approximates road distance unless `--trip-distance` is supplied; this differs from recorded trip distance used in training
 - Congestion is inferred from predicted average speed, not independently validated against live traffic
 - Historical weather and event inputs are not real-time forecasts; coverage and date matching may be incomplete
+- Active-event counts are citywide, include all calendar days an event spans, and do not establish a causal traffic effect
 - Training uses a sampled subset of the processed taxi trips, not all 2.9 million records
 - Model scores are measured on historical held-out data, not on live deployed trips
 
