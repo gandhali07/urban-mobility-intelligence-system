@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from src.modeling import train_xgboost_model
+from src.feature_engineering import build_model_matrix, pick_numeric_weather_features
 
 
 class ChronologicalEvaluationTests(unittest.TestCase):
@@ -38,6 +39,27 @@ class ChronologicalEvaluationTests(unittest.TestCase):
             self.X.loc[X_train.index, "trip_distance"].median(),
         )
         self.assertIn("mae", metrics)
+
+    def test_post_trip_fields_never_selected(self):
+        data = pd.DataFrame({
+            "pickup_ts": pd.date_range("2023-02-01", periods=20, freq="h"),
+            "trip_duration_sec": np.linspace(300, 1200, 20),
+            "trip_distance": np.linspace(1, 10, 20),
+            "temp_f": np.linspace(30, 55, 20),
+            "fare_amount": np.linspace(10, 50, 20),
+            "tip_amount": np.linspace(1, 10, 20),
+            "total_amount": np.linspace(12, 65, 20),
+            "tolls_amount": np.linspace(0, 5, 20),
+            "payment_type": np.ones(20),
+            "avg_speed_mph": np.linspace(10, 30, 20),
+        })
+        weather = pick_numeric_weather_features(data)
+        self.assertEqual(weather, ["temp_f"])
+        X, _, names = build_model_matrix(data, target_col="trip_duration_sec")
+        self.assertIn("temp_f", names)
+        for forbidden in ("fare_amount", "tip_amount", "total_amount",
+                          "tolls_amount", "payment_type", "avg_speed_mph"):
+            self.assertNotIn(forbidden, X.columns)
 
     def test_missing_timestamps_rejected(self):
         times = self.timestamps.copy()
