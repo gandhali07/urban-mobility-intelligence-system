@@ -149,7 +149,7 @@ def build_prediction_row(args: argparse.Namespace, feature_names: list[str], imp
     )
     trip_distance = args.trip_distance if args.trip_distance is not None else straight_miles * 1.35
 
-    row = build_defaults(feature_names)
+    row: dict[str, float] = {}
     row.update(
         {
             "hour": float(trip_dt.hour),
@@ -182,7 +182,7 @@ def build_prediction_row(args: argparse.Namespace, feature_names: list[str], imp
     if imputation_values is not None:
         X = X.fillna(pd.Series(imputation_values)).fillna(0.0)
     else:
-        X = X.fillna(0.0)
+        raise ValueError("Model metadata lacks training imputation values; retrain with main.py.")
     details = {
         "pickup": pickup,
         "dropoff": dropoff,
