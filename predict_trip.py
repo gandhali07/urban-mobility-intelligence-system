@@ -122,21 +122,28 @@ def weather_values_for_time(trip_dt: datetime) -> dict[str, float]:
     return values
 
 
-def event_count_for_date(trip_dt: datetime) -> int:
-    events = load_events_pandas()
+def count_events_on_date(events: pd.DataFrame, trip_dt: datetime) -> int:
+    """Count events by the same calendar-day convention as the Spark training join.
+
+    Missing or unparseable date schemas are errors, not evidence of zero events.
+    """
     if events.empty:
         return 0
-
-    date_col = None
-    for candidate in ("event_date", "Start Date/Time", "start_date_time", "date"):
-        if candidate in events.columns:
-            date_col = candidate
-            break
+    date_col = next(
+        (name for name in ("event_date", "Start Date/Time", "start_date_time", "date")
+         if name in events.columns),
+        None,
+    )
     if date_col is None:
-        return 0
+        raise ValueError("Event data has no recognized date column.")
+    dates = pd.to_datetime(events[date_col], errors="coerce")
+    if dates.notna().sum() == 0:
+        raise ValueError(f"Event date column {date_col!r} contains no parseable dates.")
+    return int((dates.dt.date == trip_dt.date()).sum())
 
-    dates = pd.to_datetime(events[date_col], errors="coerce").dt.date
-    return int((dates == trip_dt.date()).sum())
+
+def event_count_for_date(trip_dt: datetime) -> int:
+    return count_events_on_date(load_events_pandas(), trip_dt)
 
 
 def build_prediction_row(args: argparse.Namespace, feature_names: list[str], imputation_values: dict[str, float] | None = None) -> tuple[pd.DataFrame, dict[str, Any]]:
