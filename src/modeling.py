@@ -35,6 +35,7 @@ def train_xgboost_model(
     Train/test split and fit XGBoost. Returns model, metrics dict, X_train, X_test, y_train, y_test.
     """
     rs = random_state if random_state is not None else config.RANDOM_STATE
+    chronological = timestamps is not None
     if X.columns.duplicated().any():
         logger.warning("X has duplicate column names; keeping first occurrence for XGBoost.")
         X = X.loc[:, ~X.columns.duplicated(keep="first")]
