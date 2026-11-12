@@ -110,10 +110,13 @@ def weather_values_for_time(trip_dt: datetime) -> dict[str, float]:
     if out.empty:
         return {}
 
-    nearest_idx = (out["time"] - pd.Timestamp(trip_dt)).abs().idxmin()
-    row = out.loc[nearest_idx]
+    # Only use observations available by the requested pickup time.
+    available = out.loc[out["time"] <= pd.Timestamp(trip_dt)]
+    if available.empty:
+        return {}
+    row = available.iloc[-1]
     values: dict[str, float] = {}
-    for col in ["temp_k", "humidity", "pressure", "wind_m_s", "wind_dir_deg", "temp_f"]:
+    for col in ["temp_f", "temp_c", "precip_in", "humidity", "pressure", "wind_m_s", "wind_dir_deg"]:
         if col in row.index and pd.notna(row[col]):
             values[col] = float(row[col])
     return values
