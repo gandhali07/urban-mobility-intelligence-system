@@ -262,13 +262,7 @@ def build_model_matrix(
     feat_names = list(dict.fromkeys(feat_names))
 
     d = df.dropna(subset=[target_col]).copy()
-    for c in feat_names:
-        if d[c].isna().any():
-            if d[c].dtype.kind in "iufc":
-                median = d[c].median()
-                d[c] = d[c].fillna(0 if pd.isna(median) else median)
-            else:
-                d[c] = d[c].fillna(0)
+    # Preserve missing values; training-only imputation happens after splitting.
     X = d[feat_names]
     y = d[target_col]
     logger.info("Model matrix: %s samples, %s features", len(X), len(feat_names))
